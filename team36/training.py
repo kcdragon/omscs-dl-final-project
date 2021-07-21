@@ -34,6 +34,13 @@ def accuracy(output, target):
     return acc
 
 
+def predict(model, input):
+    inputs = input.unsqueeze(0)
+    out = model(inputs)
+    _, prediction = torch.max(out, dim=-1)
+    return prediction.item()
+
+
 # source: Assignment 2
 def train(epoch, data_loader, model, optimizer, criterion):
     losses = AverageMeter()
