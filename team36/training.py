@@ -1,5 +1,7 @@
+import copy
+import matplotlib.pyplot as plt
 import torch
-
+import torch.nn as nn
 
 # source: Assignment 2
 class AverageMeter(object):
@@ -99,3 +101,60 @@ def validate(epoch, val_loader, model, criterion):
 
     cm = cm / cm.sum(1)
     return acc.avg, cm, losses.avg
+
+
+
+def do_training(model, training_split, validation_split, epochs=2, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, batch_size=128):
+    """Do the full training/validation loop and generate graphs"""
+    sampler = torch.utils.data.RandomSampler(training_split, replacement=True, num_samples=1000)
+    training_loader = torch.utils.data.DataLoader(training_split, batch_size=batch_size, sampler=sampler)
+    test_loader = torch.utils.data.DataLoader(validation_split, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    if torch.cuda.is_available():
+        model = model.cuda()
+
+    criterion = nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.SGD(model.parameters(), learning_rate,
+                                momentum=momentum, weight_decay=weight_decay)
+
+    best = 0.0
+    best_cm = None
+    best_model = None
+    train_accuracy_history = []
+    train_loss_history = []
+    validation_accuracy_history = []
+    validation_loss_history = []
+    for epoch in range(epochs):
+        train_acc, train_loss = train(epoch, training_loader, model, optimizer, criterion)
+        train_accuracy_history.append(train_acc)
+        train_loss_history.append(train_loss)
+
+        acc, cm, loss = validate(epoch, test_loader, model, criterion)
+        validation_accuracy_history.append(acc)
+        validation_loss_history.append(loss)
+
+        print("Epoch {0} | Training accuracy: {1}% | Validation accuracy: {2}%".format(epoch, train_acc, acc))
+
+        if acc > best:
+            best = acc
+            best_cm = cm
+            best_model = copy.deepcopy(model)
+
+    training_curve, = plt.plot(train_accuracy_history, label='training')
+    validation_curve, = plt.plot(validation_accuracy_history, label='validation')
+    plt.title('Accuracy Curve')
+    plt.legend(handles=[training_curve, validation_curve])
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.show()
+
+    training_curve, = plt.plot(train_loss_history, label='training')
+    validation_curve, = plt.plot(validation_loss_history, label='validation')
+    plt.title('Loss Curve')
+    plt.legend(handles=[training_curve, validation_curve])
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.show()
+
+    print('Best Validation Acccuracy: {:.4f}'.format(best))
