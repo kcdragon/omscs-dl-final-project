@@ -1,7 +1,9 @@
-import copy
+import copy, os
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
+from team36.mnist.data_loading import MNIST_Loader
 
 # source: Assignment 2
 class AverageMeter(object):
@@ -36,12 +38,24 @@ def accuracy(output, target):
     return acc
 
 
-def predict(model, input):
-    inputs = input.unsqueeze(0)
+def predict(model, input, unsqueeze_dim=0):
+    inputs = input.unsqueeze(unsqueeze_dim)
     out = model(inputs)
     _, prediction = torch.max(out, dim=-1)
     return prediction.item()
 
+def predict_from_loader(model, data_loader):
+    all_out = []
+    for idx, (data, target) in enumerate(data_loader):
+        if torch.cuda.is_available():
+            data = data.cuda()
+            target = target.cuda()
+
+        with torch.no_grad():
+            out = model(data)
+            all_out.append(out)
+    out = torch.cat(all_out)
+    return out
 
 # source: Assignment 2
 def train(epoch, data_loader, model, optimizer, criterion):
@@ -71,7 +85,6 @@ def train(epoch, data_loader, model, optimizer, criterion):
                   .format(epoch, idx, len(data_loader), loss=losses, top1=acc))
 
     return acc.avg, losses.avg.item()
-
 
 # source: Assignment 2
 def validate(epoch, val_loader, model, criterion):
@@ -158,3 +171,46 @@ def do_training(model, training_split, validation_split, epochs=2, learning_rate
     plt.show()
 
     print('Best Validation Acccuracy: {:.4f}'.format(best))
+    
+def train_val_split(data, test_size=0.1, shuffle=True):
+    all_indices = range(len(data))
+    train_indices, val_indices, _, _ = train_test_split(
+        all_indices,
+        data.targets,
+        stratify=data.targets,
+        test_size=test_size,
+        shuffle=shuffle 
+    )
+    train_split = torch.utils.data.Subset(data, train_indices)
+    val_split = torch.utils.data.Subset(data, val_indices)
+
+#         print(f"{len(training_split)} in training set")
+#         print(f"{len(validation_split)} in validation set")
+
+    return train_split, val_split
+    
+def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, **training_kwargs):
+    """
+    Load model weights from existing checkpoint, or train the model if no checkpoint exists
+    @param model
+    @param checkpoint: name of checkpoint (not full path)
+    @param train_data: (optional) dataset (if None, will use MNIST)
+    @param training_kwargs: any kwargs to pass to do_training() function
+    """
+    if DATA_DIR is None:
+        DATA_DIR = f'{DIR}/data'
+    checkpoint_path = f"{DIR}/checkpoints/{checkpoint}"
+    if os.path.exists(checkpoint_path): # if trained checkpoint exists, load it
+        state_dict = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+        model.load_state_dict(state_dict)
+    else: # else, train the model
+        if dataset:
+            do_training(model, train_data)
+            train_split, val_split = train_val_split(dataset, shuffle=False)
+        else: # if no dataset given, use MNIST
+            mnist_loader = MNIST_Loader(DIR, DATA_DIR)
+            train_split, val_split = mnist_loader.train_val_split(shuffle=False)
+        print(f"{len(train_split)} in training set")
+        print(f"{len(val_split)} in validation set")
+        do_training(model, training_split=train_split, validation_split=val_split, epochs=2)
+    torch.save(model.state_dict(), checkpoint_path)

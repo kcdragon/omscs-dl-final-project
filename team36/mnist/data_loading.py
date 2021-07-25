@@ -23,7 +23,7 @@ class MNIST_Loader():
         train_indices, val_indices, _, _ = train_test_split(
             all_indices,
             data.targets,
-            stratify=data.targets,
+#             stratify=data.targets,
             test_size=test_size,
             shuffle=shuffle 
         )
