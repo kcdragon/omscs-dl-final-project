@@ -212,5 +212,5 @@ def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, **tra
             train_split, val_split = mnist_loader.train_val_split(shuffle=False)
         print(f"{len(train_split)} in training set")
         print(f"{len(val_split)} in validation set")
-        do_training(model, training_split=train_split, validation_split=val_split, epochs=2)
+        do_training(model, training_split=train_split, validation_split=val_split, **training_kwargs)
     torch.save(model.state_dict(), checkpoint_path)
