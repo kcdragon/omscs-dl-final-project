@@ -87,7 +87,7 @@ def train(epoch, data_loader, model, optimizer, criterion):
     return acc.avg, losses.avg.item()
 
 # source: Assignment 2
-def validate(epoch, val_loader, model, criterion):
+def validate(epoch, val_loader, model, criterion, no_grad=True):
     losses = AverageMeter()
     acc = AverageMeter()
 
@@ -98,7 +98,11 @@ def validate(epoch, val_loader, model, criterion):
             data = data.cuda()
             target = target.cuda()
 
-        with torch.no_grad():
+        if no_grad:
+            with torch.no_grad():
+                out = model(data)
+                loss = criterion(out, target)
+        else:
             out = model(data)
             loss = criterion(out, target)
 
@@ -113,7 +117,7 @@ def validate(epoch, val_loader, model, criterion):
         acc.update(batch_acc, out.shape[0])
 
     cm = cm / cm.sum(1)
-    return acc.avg, cm, losses.avg
+    return acc.avg, cm, losses.avg.item()
 
 
 
