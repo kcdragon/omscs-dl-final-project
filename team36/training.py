@@ -177,7 +177,7 @@ def train_val_split(data, test_size=0.1, shuffle=True):
     train_indices, val_indices, _, _ = train_test_split(
         all_indices,
         data.targets,
-        stratify=data.targets,
+#         stratify=data.targets,
         test_size=test_size,
         shuffle=shuffle 
     )
@@ -205,7 +205,7 @@ def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, **tra
         model.load_state_dict(state_dict)
     else: # else, train the model
         if dataset:
-            do_training(model, train_data)
+#             do_training(model, dataset)
             train_split, val_split = train_val_split(dataset, shuffle=False)
         else: # if no dataset given, use MNIST
             mnist_loader = MNIST_Loader(DIR, DATA_DIR)
