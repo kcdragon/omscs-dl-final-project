@@ -5,7 +5,8 @@ from sklearn.decomposition import PCA
 
 
 def calculateStats(X):
-    pca_nums = [5, 10, 15, 20, 25, 28]
+    inc = int(X.shape[1]/10)
+    pca_nums = [1*inc, 2*inc, 3*inc, 4*inc, 5*inc, 6*inc, 7*inc, 8*inc, 9*inc, X.shape[1]]
     return_PCA = torch.zeros(len(pca_nums))
     max_pca = 0
     for num in range(len(pca_nums)):
