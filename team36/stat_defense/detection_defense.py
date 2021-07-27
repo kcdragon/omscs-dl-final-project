@@ -1,13 +1,12 @@
-import detection_statistics
-import numpy as np
+from . import detection_statistics as ds
+import torch
 
-def detectAdversarial(X)
-    PCA = detection_statistics.calculateStats(X)
+def detectAdversarial(X):
+    PCA = ds.calculateStats(X)
 
     split_val = round(len(PCA) / 2)
-
-    first_half = np.sum(PCA[:split_val])
-    second_half = np.sum(PCA[split_val:])
+    first_half = torch.sum(PCA[0:split_val])
+    second_half = torch.sum(PCA[split_val:-1])
 
     if first_half >= second_half:
         # no adversarial attack detected
