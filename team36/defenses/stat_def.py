@@ -17,10 +17,9 @@ def out_size(image_size, convolution_layers):
 
 
 class VGG(nn.Module):
-    def __init__(self):
+    def __init__(self, image_size=28, in_channels=1):
         super().__init__()
 
-        image_size = 28
         num_classes = 10
         conv_kernel_size = 3
         conv_padding = 1
@@ -30,7 +29,7 @@ class VGG(nn.Module):
 
         self.convolution_layers = nn.Sequential(
             # Layer 1
-            nn.Conv2d(in_channels=1, out_channels=32,
+            nn.Conv2d(in_channels=in_channels, out_channels=32,
                       kernel_size=conv_kernel_size, stride=1,
                       padding=conv_padding, padding_mode=conv_padding_mode),
             nn.BatchNorm2d(32),
@@ -42,8 +41,15 @@ class VGG(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=pool_kernel_size, stride=pool_stride),
 
+            #Layer 2
+            nn.Conv2d(in_channels=128, out_channels=256,
+                      kernel_size=conv_kernel_size, stride=1,
+                      padding=conv_padding, padding_mode=conv_padding_mode),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=pool_kernel_size, stride=pool_stride),
         )
-        convolutional_layers_out_channels = 64
+        convolutional_layers_out_channels = 256
         convolutional_layers_out_size = out_size(image_size, self.convolution_layers)
 
         flattened_size = convolutional_layers_out_channels * pow(convolutional_layers_out_size, 2)
