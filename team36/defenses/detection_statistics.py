@@ -53,6 +53,8 @@ def calculateStats(X):
 def calculatePCA(X, num):
     pca = PCA(num)
 
-    pca.fit(X)
+    pca.fit(X.detach().numpy())
+    
+    result = torch.from_numpy(pca.explained_variance_)
 
-    return max(pca.explained_variance_)
+    return max(result)
