@@ -3,8 +3,19 @@ import torch
 import torch.nn as nn
 from sklearn.decomposition import PCA
 
+
 def calculateStats(X):
-    return PCA(X)
+    inc = int(X.shape[1]/10)
+    pca_nums = [1*inc, 2*inc, 3*inc, 4*inc, 5*inc, 6*inc, 7*inc, 8*inc, 9*inc, X.shape[1]]
+    return_PCA = torch.zeros(len(pca_nums))
+    max_pca = 0
+    for num in range(len(pca_nums)):
+        for i in range(X.shape[0]):
+            pca = calculatePCA(X[i], pca_nums[num])
+            if max_pca < pca:
+                max_pca = pca
+        return_PCA[num] = max_pca
+    return return_PCA
 
 # def calculateMMD(x1, x2, device, kernel="guassian"):
 #     """
@@ -39,8 +50,11 @@ def calculateStats(X):
 #
 #     return torch.mean(X1 + X2 - 2. * COMB)
 
-def calculatePCA(X):
-    pca = PCA()
-    pca.fit(X)
+def calculatePCA(X, num):
+    pca = PCA(num)
 
-    return pca.score()
+    pca.fit(X.detach().numpy())
+
+    result = torch.from_numpy(pca.explained_variance_)
+
+    return max(result)
