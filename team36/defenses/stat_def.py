@@ -41,7 +41,12 @@ class VGG(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=pool_kernel_size, stride=pool_stride),
 
-            #Layer 2
+            # Layer 2
+            nn.Conv2d(in_channels=64, out_channels=128,
+                      kernel_size=conv_kernel_size, stride=1,
+                      padding=conv_padding, padding_mode=conv_padding_mode),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=128, out_channels=256,
                       kernel_size=conv_kernel_size, stride=1,
                       padding=conv_padding, padding_mode=conv_padding_mode),
@@ -57,11 +62,13 @@ class VGG(nn.Module):
             nn.Linear(flattened_size, num_classes),
         )
 
+
     def forward(self, x):
         attack_array = torch.zeros((len(x)))
         for i in range(len(x)):
             attack = dd.detectAdversarial(x[i])
             attack_array[i] = attack
+        # print(attack_array)
         valid_x = x[attack_array==0]
         out = self.convolution_layers(valid_x)
         out = out.reshape(out.shape[0], -1)
