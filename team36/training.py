@@ -38,13 +38,15 @@ def accuracy(output, target):
     return acc
 
 
-def predict(model, input, unsqueeze_dim=0):
+def predict(model, input, unsqueeze_dim=0, soft=False):
     inputs = input.unsqueeze(unsqueeze_dim)
     out = model(inputs)
+    if soft:
+        return nn.functional.softmax(out)
     _, prediction = torch.max(out, dim=-1)
     return prediction.item()
 
-def predict_from_loader(model, data_loader):
+def predict_from_loader(model, data_loader, transform=None):
     all_out = []
     for idx, (data, target) in enumerate(data_loader):
         if torch.cuda.is_available():
@@ -121,19 +123,25 @@ def validate(epoch, val_loader, model, criterion, no_grad=True):
 
 
 
-def do_training(model, training_split, validation_split, epochs=2, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, batch_size=128):
+def do_training(model, training_split, validation_split, epochs=2, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, batch_size=128, num_workers=0,
+               optim=torch.optim.SGD):
     """Do the full training/validation loop and generate graphs"""
     sampler = torch.utils.data.RandomSampler(training_split, replacement=True, num_samples=1000)
     training_loader = torch.utils.data.DataLoader(training_split, batch_size=batch_size, sampler=sampler)
-    test_loader = torch.utils.data.DataLoader(validation_split, batch_size=batch_size, shuffle=False, num_workers=2)
+    test_loader = torch.utils.data.DataLoader(validation_split, batch_size=batch_size, shuffle=False, num_workers=num_workers
+                                             )
 
     if torch.cuda.is_available():
         model = model.cuda()
 
     criterion = nn.CrossEntropyLoss()
 
-    optimizer = torch.optim.SGD(model.parameters(), learning_rate,
+    if optim == torch.optim.SGD:
+        optimizer = optim(model.parameters(), learning_rate,
                                 momentum=momentum, weight_decay=weight_decay)
+    elif optim == torch.optim.Adam:
+        optimizer = optim(model.parameters(), learning_rate,
+                                weight_decay=weight_decay)
 
     best = 0.0
     best_cm = None

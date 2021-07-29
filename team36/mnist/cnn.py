@@ -8,10 +8,10 @@ class CNN(nn.Module):
     1 conv layer -> relu -> maxpool -> 1 fully connected layer
     Copied from vgg.py with extra layers removed
     """
-    def __init__(self):
+    def __init__(self, image_size=28, in_channels=1):
         super().__init__()
 
-        image_size = 28
+        image_size = image_size
         num_classes = 10
         conv_kernel_size = 3
         conv_padding = 0
@@ -21,7 +21,7 @@ class CNN(nn.Module):
 
         self.convolution_layers = nn.Sequential(
             # Layer 1
-            nn.Conv2d(in_channels=1, out_channels=32,
+            nn.Conv2d(in_channels=in_channels, out_channels=32,
                       kernel_size=conv_kernel_size, stride=1,
                       padding=conv_padding, padding_mode=conv_padding_mode),
 #             nn.BatchNorm2d(32),
