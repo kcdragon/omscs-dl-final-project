@@ -68,7 +68,7 @@ class VGG(nn.Module):
         for i in range(len(x)):
             attack = dd.detectAdversarial(x[i])
             attack_array[i] = attack
-        print(attack_array)
+        # print(attack_array)
         valid_x = x[attack_array==0]
         out = self.convolution_layers(valid_x)
         out = out.reshape(out.shape[0], -1)
