@@ -5,21 +5,22 @@ import torch
 # gradient calculation from
 #   https://stackoverflow.com/questions/54754153/autograd-grad-for-tensor-in-pytorch
 class FastSignGradientAttackDataSet(torch.utils.data.Dataset):
-    def __init__(self, baseline_dataset, model, criterion, epsilon):
+    def __init__(self, baseline_dataset, model, criterion, epsilon, device=None):
         self.baseline_dataset = baseline_dataset
         self.model = model
         self.criterion = criterion
         self.epsilon = epsilon
+        self.device = device
 
     def __getitem__(self, index):
         input, target = self.baseline_dataset[index]
-        batch = [(input, target)]
-        inputs = torch.zeros((len(batch),) + batch[0][0].shape)
-        targets = torch.zeros((len(batch)), dtype=torch.long)
-        for i, x in enumerate(batch):
-            inputs[i] = x[0]
-            targets[i] = x[1]
+
+        if self.device is not None:
+            input = input.to(self.device)
+
+        inputs = input.unsqueeze(0)
         inputs.requires_grad_()
+        targets = torch.tensor([target]).to(inputs.device)
 
         out = self.model(inputs)
         loss = self.criterion(out, targets)
@@ -28,11 +29,11 @@ class FastSignGradientAttackDataSet(torch.utils.data.Dataset):
         eta = self.epsilon * torch.sign(loss_gradient[0])
         adversarial_inputs = inputs + eta
 
-        for index in range(adversarial_inputs.shape[0]):
-            adversarial_input = adversarial_inputs[index]
-            min = torch.min(adversarial_input)
-            max = torch.max(adversarial_input)
-            adversarial_input = (adversarial_input - min) / (max - min)
+        adversarial_input = adversarial_inputs[0]
+        min = torch.min(adversarial_input)
+        max = torch.max(adversarial_input)
+        adversarial_input = (adversarial_input - min) / (max - min)
+
         return adversarial_input, target
 
     def __len__(self):
