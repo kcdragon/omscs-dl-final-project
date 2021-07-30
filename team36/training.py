@@ -113,11 +113,11 @@ def validate(epoch, val_loader, model, criterion, no_grad=True):
         for t, p in zip(target.view(-1), preds.view(-1)):
             cm[t.long(), p.long()] += 1
 
-        losses.update(loss, out.shape[0])
+        losses.update(loss.item(), out.shape[0])
         acc.update(batch_acc, out.shape[0])
 
     cm = cm / cm.sum(1)
-    return acc.avg, cm, losses.avg.item()
+    return acc.avg, cm, losses.avg
 
 
 
