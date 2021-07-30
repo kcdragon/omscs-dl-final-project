@@ -69,8 +69,10 @@ class VGG(nn.Module):
             attack = dd.detectAdversarial(x[i])
             attack_array[i] = attack
         # print(attack_array)
-        valid_x = x[attack_array==0]
-        out = self.convolution_layers(valid_x)
+        # valid_x = x[attack_array==0]
+        # if len(valid_x) == 0:
+        #     return torch.empty(x.shape)
+        out = self.convolution_layers(x)
         out = out.reshape(out.shape[0], -1)
         out = self.linear_layers(out)
-        return out
+        return out[attack_array==0], attack_array
