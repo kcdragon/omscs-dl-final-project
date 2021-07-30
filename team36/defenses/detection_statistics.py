@@ -47,10 +47,13 @@ def calculateStats(X):
 #     return torch.mean(X1 + X2 - 2. * COMB)
 
 def calculatePCA(X, num):
-    pca = PCA(num)
+    pca = PCA(num, whiten=True)
 
-    pca.fit(X.detach().numpy())
+    X = X.detach().numpy()
 
-    result = torch.from_numpy(pca.explained_variance_)
+    pca.fit(X)
+
+    result = pca.explained_variance_[0]
+    result = torch.from_numpy(np.asarray(result))
 
     return torch.mean(result)
