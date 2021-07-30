@@ -113,11 +113,11 @@ def validate(epoch, val_loader, model, criterion, no_grad=True):
         for t, p in zip(target.view(-1), preds.view(-1)):
             cm[t.long(), p.long()] += 1
 
-        losses.update(loss, out.shape[0])
+        losses.update(loss.item(), out.shape[0])
         acc.update(batch_acc, out.shape[0])
 
     cm = cm / cm.sum(1)
-    return acc.avg, cm, losses.avg.item()
+    return acc.avg, cm, losses.avg
 
 
 
@@ -193,12 +193,14 @@ def train_val_split(data, test_size=0.1, shuffle=True):
 
     return train_split, val_split
     
-def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, **training_kwargs):
+def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, train_split=None, val_split=None, **training_kwargs):
     """
     Load model weights from existing checkpoint, or train the model if no checkpoint exists
     @param model
     @param checkpoint: name of checkpoint (not full path)
-    @param train_data: (optional) dataset (if None, will use MNIST)
+    @param dataset: (optional) dataset (if None and train_split and val_split are also None, defaults to MNIST)
+    @param train_split, val_split: pass these instead of dataset if you already have a specific train/val split you want to use
+        (these are ignored if dataset is not None)
     @param training_kwargs: any kwargs to pass to do_training() function
     """
     if DATA_DIR is None:
@@ -211,6 +213,8 @@ def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, **tra
         if dataset:
 #             do_training(model, dataset)
             train_split, val_split = train_val_split(dataset, shuffle=False)
+        elif train_split and val_split:
+            pass
         else: # if no dataset given, use MNIST
             mnist_loader = MNIST_Loader(DIR, DATA_DIR)
             train_split, val_split = mnist_loader.train_val_split(shuffle=False)
