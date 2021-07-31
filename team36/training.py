@@ -88,6 +88,40 @@ def train(epoch, data_loader, model, optimizer, criterion):
 
     return acc.avg, losses.avg.item()
 
+def train_batch(batch, model, epochs=1, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, criterion=nn.CrossEntropyLoss()):
+#     print('batch', len(batch))
+    data, target = batch
+#     print('data', data.shape)
+    losses = AverageMeter()
+    acc = AverageMeter()
+
+    num_class = 10
+    cm = torch.zeros(num_class, num_class)
+    
+    optimizer = torch.optim.SGD(model.parameters(), learning_rate,
+                    momentum=momentum, weight_decay=weight_decay)
+    if torch.cuda.is_available():
+        data = data.cuda()
+        target = target.cuda()
+
+    for epoch in range(epochs):
+#         print('epoch', epoch)
+        out = model(data)
+#         print('out', out.shape)
+        loss = criterion(out, target)
+#         print('loss', loss)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        batch_acc = accuracy(out, target)
+
+        losses.update(loss, out.shape[0])
+        acc.update(batch_acc, out.shape[0])
+        print("Epoch {0} | Training accuracy: {1}%".format(epoch, batch_acc))
+#         print("Epoch {0} | Training accuracy: {1}% | Validation accuracy: {2}%".format(epoch, train_acc, acc))
+        
+
 # source: Assignment 2
 def validate(epoch, val_loader, model, criterion, no_grad=True):
     losses = AverageMeter()
@@ -124,7 +158,7 @@ def validate(epoch, val_loader, model, criterion, no_grad=True):
 
 
 def do_training(model, training_split, validation_split, epochs=2, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, batch_size=128, num_workers=0,
-               optim=torch.optim.SGD):
+               optim=torch.optim.SGD, jacobian_augmentation=False):
     """Do the full training/validation loop and generate graphs"""
     sampler = torch.utils.data.RandomSampler(training_split, replacement=True, num_samples=1000)
     training_loader = torch.utils.data.DataLoader(training_split, batch_size=batch_size, sampler=sampler)
