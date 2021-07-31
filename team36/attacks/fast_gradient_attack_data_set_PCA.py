@@ -22,8 +22,8 @@ class FastSignGradientAttackDataSet(torch.utils.data.Dataset):
         inputs.requires_grad_()
         targets = torch.tensor([target]).to(inputs.device)
 
-        out = self.model(inputs)
-        loss = self.criterion(out, targets)
+        out, indexes = self.model(inputs)
+        loss = self.criterion(out, targets[indexes==0])
         loss_gradient = torch.autograd.grad(outputs=loss, inputs=inputs)
 
         eta = self.epsilon * torch.sign(loss_gradient[0])

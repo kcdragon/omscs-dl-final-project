@@ -38,15 +38,13 @@ def accuracy(output, target):
     return acc
 
 
-def predict(model, input, unsqueeze_dim=0, soft=False):
+def predict(model, input, unsqueeze_dim=0):
     inputs = input.unsqueeze(unsqueeze_dim)
-    out = model(inputs)
-    if soft:
-        return nn.functional.softmax(out)
+    out, indexes = model(inputs)
     _, prediction = torch.max(out, dim=-1)
     return prediction.item()
 
-def predict_from_loader(model, data_loader, transform=None):
+def predict_from_loader(model, data_loader):
     all_out = []
     for idx, (data, target) in enumerate(data_loader):
         if torch.cuda.is_available():
@@ -54,7 +52,7 @@ def predict_from_loader(model, data_loader, transform=None):
             target = target.cuda()
 
         with torch.no_grad():
-            out = model(data)
+            out, indexes = model(data)
             all_out.append(out)
     out = torch.cat(all_out)
     return out
@@ -69,13 +67,13 @@ def train(epoch, data_loader, model, optimizer, criterion):
             data = data.cuda()
             target = target.cuda()
 
-        out = model(data)
-        loss = criterion(out, target)
+        out, indexes = model(data)
+        loss = criterion(out, target[indexes==0])
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        batch_acc = accuracy(out, target)
+        batch_acc = accuracy(out, target[indexes==0])
 
         losses.update(loss, out.shape[0])
         acc.update(batch_acc, out.shape[0])
@@ -87,40 +85,6 @@ def train(epoch, data_loader, model, optimizer, criterion):
                   .format(epoch, idx, len(data_loader), loss=losses, top1=acc))
 
     return acc.avg, losses.avg.item()
-
-def train_batch(batch, model, epochs=1, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, criterion=nn.CrossEntropyLoss()):
-#     print('batch', len(batch))
-    data, target = batch
-#     print('data', data.shape)
-    losses = AverageMeter()
-    acc = AverageMeter()
-
-    num_class = 10
-    cm = torch.zeros(num_class, num_class)
-    
-    optimizer = torch.optim.SGD(model.parameters(), learning_rate,
-                    momentum=momentum, weight_decay=weight_decay)
-    if torch.cuda.is_available():
-        data = data.cuda()
-        target = target.cuda()
-
-    for epoch in range(epochs):
-#         print('epoch', epoch)
-        out = model(data)
-#         print('out', out.shape)
-        loss = criterion(out, target)
-#         print('loss', loss)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        batch_acc = accuracy(out, target)
-
-        losses.update(loss, out.shape[0])
-        acc.update(batch_acc, out.shape[0])
-        print("Epoch {0} | Training accuracy: {1}%".format(epoch, batch_acc))
-#         print("Epoch {0} | Training accuracy: {1}% | Validation accuracy: {2}%".format(epoch, train_acc, acc))
-        
 
 # source: Assignment 2
 def validate(epoch, val_loader, model, criterion, no_grad=True):
@@ -136,46 +100,40 @@ def validate(epoch, val_loader, model, criterion, no_grad=True):
 
         if no_grad:
             with torch.no_grad():
-                out = model(data)
-                loss = criterion(out, target)
+                out, indexes = model(data)
+                loss = criterion(out, target[indexes==0])
         else:
-            out = model(data)
-            loss = criterion(out, target)
+            out, indexes = model(data)
+            loss = criterion(out, target[indexes==0])
 
-        batch_acc = accuracy(out, target)
+        batch_acc = accuracy(out, target[indexes==0])
 
         # update confusion matrix
         _, preds = torch.max(out, 1)
         for t, p in zip(target.view(-1), preds.view(-1)):
             cm[t.long(), p.long()] += 1
 
-        losses.update(loss.item(), out.shape[0])
+        losses.update(loss, out.shape[0])
         acc.update(batch_acc, out.shape[0])
 
     cm = cm / cm.sum(1)
-    return acc.avg, cm, losses.avg
+    return acc.avg, cm, losses.avg.item()
 
 
 
-def do_training(model, training_split, validation_split, epochs=2, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, batch_size=128, num_workers=0,
-               optim=torch.optim.SGD, jacobian_augmentation=False):
+def do_training(model, training_split, validation_split, epochs=2, learning_rate=1e-3, momentum=5e-1, weight_decay=5e-2, batch_size=128):
     """Do the full training/validation loop and generate graphs"""
     sampler = torch.utils.data.RandomSampler(training_split, replacement=True, num_samples=1000)
     training_loader = torch.utils.data.DataLoader(training_split, batch_size=batch_size, sampler=sampler)
-    test_loader = torch.utils.data.DataLoader(validation_split, batch_size=batch_size, shuffle=False, num_workers=num_workers
-                                             )
+    test_loader = torch.utils.data.DataLoader(validation_split, batch_size=batch_size, shuffle=False, num_workers=2)
 
     if torch.cuda.is_available():
         model = model.cuda()
 
     criterion = nn.CrossEntropyLoss()
 
-    if optim == torch.optim.SGD:
-        optimizer = optim(model.parameters(), learning_rate,
+    optimizer = torch.optim.SGD(model.parameters(), learning_rate,
                                 momentum=momentum, weight_decay=weight_decay)
-    elif optim == torch.optim.Adam:
-        optimizer = optim(model.parameters(), learning_rate,
-                                weight_decay=weight_decay)
 
     best = 0.0
     best_cm = None
@@ -235,14 +193,12 @@ def train_val_split(data, test_size=0.1, shuffle=True):
 
     return train_split, val_split
     
-def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, train_split=None, val_split=None, **training_kwargs):
+def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, **training_kwargs):
     """
     Load model weights from existing checkpoint, or train the model if no checkpoint exists
     @param model
     @param checkpoint: name of checkpoint (not full path)
-    @param dataset: (optional) dataset (if None and train_split and val_split are also None, defaults to MNIST)
-    @param train_split, val_split: pass these instead of dataset if you already have a specific train/val split you want to use
-        (these are ignored if dataset is not None)
+    @param train_data: (optional) dataset (if None, will use MNIST)
     @param training_kwargs: any kwargs to pass to do_training() function
     """
     if DATA_DIR is None:
@@ -255,8 +211,6 @@ def load_or_train(model, checkpoint, DIR='.', DATA_DIR=None, dataset=None, train
         if dataset:
 #             do_training(model, dataset)
             train_split, val_split = train_val_split(dataset, shuffle=False)
-        elif train_split and val_split:
-            pass
         else: # if no dataset given, use MNIST
             mnist_loader = MNIST_Loader(DIR, DATA_DIR)
             train_split, val_split = mnist_loader.train_val_split(shuffle=False)
