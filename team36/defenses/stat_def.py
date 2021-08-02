@@ -75,4 +75,4 @@ class VGG(nn.Module):
         out = self.convolution_layers(x)
         out = out.reshape(out.shape[0], -1)
         out = self.linear_layers(out)
-        return out[attack_array==0], attack_array
+        return out[attack_array==0]
